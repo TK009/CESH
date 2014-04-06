@@ -1,0 +1,78 @@
+Name:                cesh
+Version:             0.0.1.0
+License:             MIT
+License-file:        LICENSE
+Author:              Tuomas Kinnunen
+Build-type:          Simple
+Cabal-version:       >= 1.9.2
+
+
+flag profile
+  default: False
+
+flag eventlog
+  default: False
+
+Test-Suite test-cesh
+  type:    exitcode-stdio-1.0
+  main-is: CeshTest.hs
+  hs-source-dirs: src
+  
+  build-depends:
+      base >= 4 && < 5,
+      HUnit,
+      lens,
+      linear,
+      random,
+      containers,
+      transformers,
+      parallel
+
+  ghc-options: 
+    -Wall
+    -threaded
+    -O2
+    "-with-rtsopts=-N"
+
+  if flag(eventlog)
+    ghc-options: 
+      -threaded
+      -O2
+      -eventlog
+      "-with-rtsopts=-N -ls"
+
+Library
+  exposed-modules: Cesh
+  hs-source-dirs: src
+
+  build-depends:
+      base >= 4 && < 5,
+      lens,
+      linear,
+      random,
+      containers,
+      transformers,
+      parallel
+
+  ghc-options: 
+    -Wall
+    -threaded
+    -O2
+    "-with-rtsopts=-N"
+
+  if flag(profile)
+    ghc-options: 
+      -threaded
+      -O2
+      -auto-all
+      -caf-all
+      -rtsopts
+      "-with-rtsopts=-N -p -hc"
+   
+  if flag(eventlog)
+    ghc-options: 
+      -threaded
+      -O2
+      -eventlog
+      "-with-rtsopts=-N -ls"
+
