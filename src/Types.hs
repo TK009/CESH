@@ -12,9 +12,13 @@ import System.Random
 import Control.Lens hiding (at)
 import Linear
 
-import qualified Data.IntMap.Strict as Map
+--import qualified Data.IntMap.Strict as Map
+import Data.IntMap.Strict (IntMap)
+import Data.Set (Set)
 --import qualified Data.Map.Strict as SMap
 
+-- * Tags?
+-- | Tag type, all possible tags for a 'Component'
 data Tag =
     Position
   | Velocity
@@ -26,16 +30,21 @@ data Tag =
 
 
 --------------------------------------------------------------------------------
+-- * Components
 
 
 class Typeable a => Component a where
     cTag :: a -> Tag
-    cIndex :: a -> CompIndex
+    cIndex :: a -> CompTagId
     cIndex c = tagIndex $ cTag c
     --getData :: Typeable a => SomeComponent -> a
     --getData = fromDynamic
 
-type CompIndex = Int
+
+-- | non-symbolic identifier for a 'Tag'
+type CompTagId = Int
+
+-- | Must be an instance of 'Component' typeclass.
 type SomeComponent = Dynamic
 
 
@@ -47,10 +56,22 @@ instance Component PositionData where
 
 --------------------------------------------------------------------------------
 
-type Components = Map.IntMap SomeComponent -- EntityId to Somecomponent
+-- | from 'ComponentId' to 'SomeComponent'
+type Components = IntMap SomeComponent
+-- | id for existing 'Entity'
+type EntityId = Int
+-- | id for existing 'RegisteredComponent'
+type ComponentId = Int
+
+-- | existing 'Component'
+data RegisteredComponent = RegisteredComponent {
+    _ownerId  :: !EntityId
+  , _compId   :: !ComponentId
+  , _compData :: !SomeComponent
+}
 
 data Entity = Entity {
-    _eId :: !Int
+    _eId   :: !Int
   , _alias :: !Alias
 }
 
@@ -60,42 +81,49 @@ data Alias =
   | ThePlayer
   deriving (Show, Read, Eq)
 
-type System a = a -> GameMonad a
 
 --------------------------------------------------------------------------------
+-- * Entity managment
+
 
 type GameMonad a = StateT GameWorld IO a
 
 data GameWorld = GameWorld {
-    _random :: StdGen
-  , _entityManager :: EntityManager
+    _random        :: !StdGen
+  , _entityManager :: !EntityManager
 }
 
 data EntityManager = EntityManager {
     _entityCounter :: !Int
-  , _entities      :: !(Map.IntMap Entity)
-  --, _components    :: !Components -- TODO
+  , _entities      :: !(IntMap Entity)
+  , _components    :: !Components
   , _systemCounter :: !Int
-  , _systemGrouping:: !(Map.IntMap Components)
-  , _systems       :: !(Map.IntMap RegisteredSystem)
+  , _systemGrouping:: !(IntMap (Set ComponentId)) -- ^ Contains the 'ComponentId''s with a SystemId as the key
+  , _systems       :: !(IntMap RegisteredSystem)
 }
 
+-- | Systems should follow this type
+type System a = a -> GameMonad a
+
+-- | An active 'System'
 data RegisteredSystem = RegisteredSystem {
-    _sysInputs :: [CompIndex]
-  , _sysFunc   :: System Dynamic
+    _sysInputs :: ![CompTagId]
+  , _sysFunc   :: !(System Dynamic)
 }
 
 --------------------------------------------------------------------------------
--- | Internal?
+-- * Internal?
 
-tagIndexMax :: CompIndex
+tagIndexMax :: CompTagId
 tagIndexMax = maxConstrIndex $ dataTypeOf (undefined :: Tag) 
 
-tagIndex :: Tag -> CompIndex
+tagIndex :: Tag -> CompTagId
 tagIndex tag = constrIndex $ toConstr tag
 
 
 --------------------------------------------------------------------------------
+-- * Lens
+
 $(makeLenses ''GameWorld)  
 $(makeLenses ''EntityManager)  
 $(makeLenses ''Entity)  
