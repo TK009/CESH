@@ -12,10 +12,10 @@ import System.Random
 import Control.Lens hiding (at)
 import Linear
 
---import qualified Data.IntMap.Strict as Map
+--import qualified Data.IntMap.Strict as I
 import Data.IntMap.Strict (IntMap)
 import Data.Set (Set)
---import qualified Data.Map.Strict as SMap
+--import qualified Data.Map.Strict as M
 
 -- * Tags?
 -- | Tag type, all possible tags for a 'Component'
@@ -89,8 +89,8 @@ data Alias =
 type GameMonad a = StateT GameWorld IO a
 
 data GameWorld = GameWorld {
-    _random        :: !StdGen
-  , _entityManager :: !EntityManager
+    _random   :: !StdGen
+  , _eManager :: !EntityManager
 }
 
 data EntityManager = EntityManager {
@@ -98,7 +98,9 @@ data EntityManager = EntityManager {
   , _entities      :: !(IntMap Entity)
   , _components    :: !Components
   , _systemCounter :: !Int
-  , _systemGrouping:: !(IntMap (Set ComponentId)) -- ^ Contains the 'ComponentId''s with a SystemId as the key
+  , _systemGrouping:: !(IntMap (Set [ComponentId])) 
+  -- ^ Contains the 'ComponentId''s with a SystemId as the key.
+  -- Each Set contains collection of entities' component groups that belong to the 'System'
   , _systems       :: !(IntMap RegisteredSystem)
 }
 
