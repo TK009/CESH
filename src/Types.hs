@@ -1,5 +1,11 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+
+{-# LANGUAGE UndecidableInstances #-}
+-- {-# LANGUAGE TypeFamilies #-}
+-- {-# LANGUAGE GADTs #-}
+-- {-# LANGUAGE MultiParamTypeClasses #-}
 module Types where
 
 import Data.Typeable (Typeable)
@@ -7,17 +13,18 @@ import Data.Dynamic (Dynamic)
 import Data.Data (Data, dataTypeOf, toConstr, constrIndex, maxConstrIndex)
 
 import Control.Monad.Trans.State
-import System.Random
+--import Control.Monad.IO.Class (liftIO)
 
 import Control.Lens hiding (at)
-import Linear
+
 
 --import qualified Data.IntMap.Strict as I
 import Data.IntMap.Strict (IntMap)
 import Data.Set (Set)
---import qualified Data.Map.Strict as M
+-- import qualified Data.Map.Strict as M
+import Data.Map.Strict (Map)
 
--- * Tags?
+-- * Tags, TODO: move these
 -- | Tag type, all possible tags for a 'Component'
 data Tag =
     Position
@@ -26,7 +33,8 @@ data Tag =
   | StaticBody
   | Keyboard
   | Sprite
-  | Renderable deriving (Show, Ord, Eq, Typeable, Data)
+  | Renderable
+  deriving (Show, Read, Ord, Eq, Typeable, Data)
 
 
 --------------------------------------------------------------------------------
@@ -35,45 +43,53 @@ data Tag =
 
 class Typeable a => Component a where
     cTag :: a -> Tag
-    cIndex :: a -> CompTagId
+    cIndex :: a -> TagId
     cIndex c = tagIndex $ cTag c
-    --getData :: Typeable a => SomeComponent -> a
-    --getData = fromDynamic
 
 
 -- | non-symbolic identifier for a 'Tag'
-type CompTagId = Int
+newtype TagId = TagId Int deriving (Ord, Eq)
+
+-- | map with TagIds as key
+type TagIdMap a = Map TagId a
 
 -- | Must be an instance of 'Component' typeclass.
 type SomeComponent = Dynamic
 
-
-data PositionData = PositionData (V2 Int)
-    deriving (Show, Read, Typeable)
-instance Component PositionData where
-    cTag _ = Position
+--data PositionData = PositionData (V2 Int)
+--    deriving (Show, Read, Typeable)
+--instance Component PositionData where
+--    cTag _ = Position
 
 
 --------------------------------------------------------------------------------
 
--- | from 'ComponentId' to 'SomeComponent'
+-- | from 'EntityId' to 'SomeComponent'
 type Components = IntMap SomeComponent
--- | id for existing 'Entity'
-type EntityId = Int
+
+
 -- | id for existing 'RegisteredComponent'
-type ComponentId = Int
+newtype ComponentId = ComponentId Int
 
 -- | existing 'Component'
-data RegisteredComponent = RegisteredComponent {
-    _ownerId  :: !EntityId
-  , _compId   :: !ComponentId
-  , _compData :: !SomeComponent
-}
+--data RegisteredComponent = RegisteredComponent {
+--    _ownerId  :: !EntityId
+--  , _compId   :: !ComponentId
+--  , _compData :: !SomeComponent
+--}
 
-data Entity = Entity {
-    _eId   :: !Int
-  , _alias :: !Alias
-}
+
+
+--------------------------------------------------------------------------------
+-- * Entities
+
+-- | id for existing 'Entity'
+newtype EntityId = EntityId Int deriving (Ord, Eq)
+
+-- use only IDs?
+--data Entity = Entity {
+--    _eId   :: !EntityId
+--}
 
 
 data Alias =
@@ -86,48 +102,38 @@ data Alias =
 -- * Entity managment
 
 
-type GameMonad a = StateT GameWorld IO a
+type Cesh = StateT EntityManager IO
 
-data GameWorld = GameWorld {
-    _random   :: !StdGen
-  , _eManager :: !EntityManager
-}
 
 data EntityManager = EntityManager {
-    _entityCounter :: !Int
-  , _entities      :: !(IntMap Entity)
-  , _components    :: !Components
-  , _systemCounter :: !Int
-  , _systemGrouping:: !(IntMap (Set [ComponentId])) 
-  -- ^ Contains the 'ComponentId''s with a SystemId as the key.
-  -- Each Set contains collection of entities' component groups that belong to the 'System'
-  , _systems       :: !(IntMap RegisteredSystem)
+    _entityCounter   :: !Int
+  , _entitySet       :: !(Set EntityId) -- !(IntMap Entity)
+  , _entityParents   :: !(Map EntityId [EntityId])
+  , _entitiesUpdated :: ![EntityId]
+  , _compsByType     :: !(Map TagId Components)
+  , _systems         :: ![Cesh ()]
 }
 
--- | Systems should follow this type
-type System a = a -> GameMonad a
 
--- | An active 'System'
-data RegisteredSystem = RegisteredSystem {
-    _sysInputs :: ![CompTagId]
-  , _sysFunc   :: !(System Dynamic)
-}
 
 --------------------------------------------------------------------------------
 -- * Internal?
 
-tagIndexMax :: CompTagId
-tagIndexMax = maxConstrIndex $ dataTypeOf (undefined :: Tag) 
+-- For working only with type Tag
+tagPlaceholder :: Tag
+tagPlaceholder = error "tagPlaceholder :: Tag"
 
-tagIndex :: Tag -> CompTagId
-tagIndex tag = constrIndex $ toConstr tag
+tagIndexMax :: TagId
+tagIndexMax = TagId . maxConstrIndex $ dataTypeOf tagPlaceholder
+
+tagIndex :: Tag -> TagId
+tagIndex tag = TagId . constrIndex $ toConstr tag
 
 
 --------------------------------------------------------------------------------
 -- * Lens
 
-$(makeLenses ''GameWorld)  
 $(makeLenses ''EntityManager)  
-$(makeLenses ''Entity)  
-$(makeLenses ''RegisteredSystem)
+-- -- $(makeLenses ''RegisteredComponent)
+-- -- $(makeLenses ''Entity)  
 
