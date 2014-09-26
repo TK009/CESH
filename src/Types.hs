@@ -111,10 +111,14 @@ data EntityManager = EntityManager {
   , _entityParents   :: !(Map EntityId [EntityId])
   , _entitiesUpdated :: ![EntityId]
   , _compsByType     :: !(Map TagId Components)
+  -- ^ Components are saved by type and then by assosiated entity.
   , _systems         :: ![Cesh ()]
 }
 
-
+data EntityLocation = EntityLocation {
+    _locationTag    :: !TagId
+  , _locationEntity :: !EntityId
+}
 
 --------------------------------------------------------------------------------
 -- * Internal?
@@ -134,6 +138,7 @@ tagIndex tag = TagId . constrIndex $ toConstr tag
 -- * Lens
 
 $(makeLenses ''EntityManager)  
+$(makeLenses ''EntityLocation)  
 -- -- $(makeLenses ''RegisteredComponent)
 -- -- $(makeLenses ''Entity)  
 

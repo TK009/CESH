@@ -47,19 +47,21 @@ entityHasTag e tagId = do
 
 -- | Tests whether entity contains all components given by '[TagId]',
 -- some but not all can be from parents or ancestors, if so, results to asked components.
-resolveEntity :: EntityId -> [TagId] -> MaybeT Cesh [SomeComponent]
+resolveEntity :: EntityId -> [TagId] -> MaybeT Cesh [EntityLocation] -- [SomeComponent]
 resolveEntity e tags = do
     entityOwns  <- lift entityMatch
     parentsOwns <- lift parentsMatch
 
     guard $ entityCheckTags entityOwns parentsOwns
 
+    let allMatches = (tags `zip` entityOwns) ++ concatMap (zip tags) parentsOwns
+    -- FIXME: there might be duplicates among entity and its parents
+    return . map (eLocation . fst) . filter snd $ allMatches
     
-    
-    return _
 
   where
-    getParents = getEntityParents e
+    eLocation tag = EntityLocation tag e
+    getParents    = getEntityParents e
 
     entityMatch  :: Cesh [Bool]
     entityMatch  = entityHasTags e tags 
