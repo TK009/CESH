@@ -4,9 +4,12 @@ import Control.Monad (liftM, forM, guard)
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Class
 import Control.Lens
+import Data.Monoid (mconcat)
 
 import qualified Data.IntMap.Strict as I
+import qualified Data.Map.Strict as M
 import Data.IntMap.Strict (IntMap)
+import Data.Map.Strict (Map)
 
 
 import Types
@@ -32,8 +35,12 @@ getEntityParents eid = do
   where concatMapM f xs = liftM concat (mapM f xs)
 
 -- | Returns list of Bools corresponding to given list of 'TagId's
-entityHasTags :: EntityId -> [TagId] -> Cesh [Bool]
-entityHasTags e = mapM (entityHasTag e)
+entityHasTags :: EntityId -> [TagId] -> Cesh (Map TagId Bool)
+entityHasTags e tags = do
+    singletons <- forM tags $ \tag -> do
+        bool <- entityHasTag e tag
+        return $ M.singleton tag bool
+    return $ mconcat singletons
 
 entityHasTag :: EntityId -> TagId -> Cesh Bool
 entityHasTag e tagId = do
@@ -43,43 +50,46 @@ entityHasTag e tagId = do
         Just tagComps -> e `entityMember` tagComps
         Nothing       -> False
 
--- # Hierarchies
 
 -- | Tests whether entity contains all components given by '[TagId]',
 -- some but not all can be from parents or ancestors, if so, results to asked components.
-resolveEntity :: EntityId -> [TagId] -> MaybeT Cesh [EntityLocation] -- [SomeComponent]
+resolveEntity :: EntityId -> [TagId] -> MaybeT Cesh [EntityLocation]
 resolveEntity e tags = do
     entityOwns  <- lift entityMatch
     parentsOwns <- lift parentsMatch
 
-    guard $ entityCheckTags entityOwns parentsOwns
+    guard $ entityCheckTags (M.elems entityOwns) (M.elems parentsOwns)
 
-    let allMatches = (tags `zip` entityOwns) ++ concatMap (zip tags) parentsOwns
-    -- FIXME: there might be duplicates among entity and its parents
-    return . map (eLocation . fst) . filter snd $ allMatches
+    -- union discards duplicates in the second parameter
+    let allMatches = entityOwns `M.union` parentsOwns
+
+    -- now should hold:
+    -- guard . and $ elems allMatches 
+    return . map eLocation $ M.keys allMatches
     
 
   where
     eLocation tag = EntityLocation tag e
     getParents    = getEntityParents e
 
-    entityMatch  :: Cesh [Bool]
+    entityMatch  :: Cesh (Map TagId Bool)
     entityMatch  = entityHasTags e tags 
 
-    parentsMatch :: Cesh [[Bool]]
+    parentsMatch :: Cesh (Map TagId Bool)
     parentsMatch = do
         parents <- getParents
 
-        forM parents $ \parent ->
+        results <- forM parents $ \parent ->
             entityHasTags parent tags
+        return $ mconcat results
 
     or2 = zipWith (||)
-    orN = foldr1 or2 
 
+    entityCheckTags :: [Bool] -> [Bool] -> Bool
     entityCheckTags entityOwns parentsOwns =
             and entityOwns ||
                (or entityOwns &&
-                and (entityOwns `or2` orN parentsOwns)
+                and (entityOwns `or2` parentsOwns)
                )
 
 
