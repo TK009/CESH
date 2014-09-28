@@ -64,12 +64,6 @@ type SomeComponent = Dynamic
 
 --------------------------------------------------------------------------------
 
--- | from 'EntityId' to 'SomeComponent'
-type Components = IntMap SomeComponent
-
-
--- | id for existing 'RegisteredComponent'
-newtype ComponentId = ComponentId Int
 
 -- | existing 'Component'
 --data RegisteredComponent = RegisteredComponent {
@@ -104,10 +98,20 @@ data Alias =
 
 type Cesh = StateT EntityManager IO
 
+-- | from 'EntityId' to 'SomeComponent'
+type Components = IntMap SomeComponent
+
+-- | id for existing 'RegisteredComponent'
+newtype ComponentId = ComponentId Int
+
 
 data EntityManager = EntityManager {
     _entityCounter   :: !Int
+  -- TODO: what if we run out of integers?
+  --, _availableEIds   :: !
   , _entitySet       :: !(Set EntityId) -- !(IntMap Entity)
+  , _entitiesChanged :: !(Set EntityId)
+  -- ^ Tells which entities needs to be resolved in the end of a frame
   , _entityParents   :: !(Map EntityId [EntityId])
   , _entitiesUpdated :: ![EntityId]
   , _compsByType     :: !(Map TagId Components)
@@ -115,7 +119,7 @@ data EntityManager = EntityManager {
   , _systems         :: ![Cesh ()]
 }
 
-data EntityLocation = EntityLocation {
+data ComponentLocation = ComponentLocation {
     _locationTag    :: !TagId
   , _locationEntity :: !EntityId
 }
@@ -138,7 +142,7 @@ tagIndex tag = TagId . constrIndex $ toConstr tag
 -- * Lens
 
 $(makeLenses ''EntityManager)  
-$(makeLenses ''EntityLocation)  
+$(makeLenses ''ComponentLocation)  
 -- -- $(makeLenses ''RegisteredComponent)
 -- -- $(makeLenses ''Entity)  
 

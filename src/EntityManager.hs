@@ -1,25 +1,76 @@
 module EntityManager where
 
-import Control.Monad (liftM, forM, guard)
+import Control.Monad (liftM, forM, guard, when)
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Class
 import Control.Lens
 import Data.Monoid (mconcat)
 
 import qualified Data.IntMap.Strict as I
-import qualified Data.Map.Strict as M
 import Data.IntMap.Strict (IntMap)
+import qualified Data.Map.Strict as M
 import Data.Map.Strict (Map)
+import qualified Data.Set as S
 
 
 import Types
 
+-- * Entities
+
+-- ** Addition and Removal
+
+-- | Only empty entities can be created. Components can then added to the created entity
+createEntity :: Cesh EntityId
+createEntity = do
+    nextId <- use entityCounter
+    entityCounter += 1
+
+    let newId = EntityId nextId
+    entitySet %= S.insert newId
+
+    return newId
+
+-- | Remove entity and associated components. Returns False if entity was not found.
+removeEntity :: EntityId -> Cesh Bool
+removeEntity e = do
+    entityExists <- use $ entitySet . contains e
+    --let entityExists = e `S.member` entities
+
+    when entityExists $
+        removeComponents e
+    return entityExists
+
+  where 
+    -- remove any components associated to given entity
+    removeComponents :: EntityId -> Cesh ()
+    removeComponents (EntityId eid) = 
+        compsByType . traverse %= (at eid .~ Nothing)
+
+   
+removeComponent :: ComponentLocation -> Cesh ()
+removeComponent (ComponentLocation tag (EntityId eid)) =
+    -- update 2D IntMap: update at tag, traverse Just value at eid setting it to Nothing which removes it
+    compsByType . at tag %= (_Just . at eid .~ Nothing)
+    
+
+-- ** Checks and getters
 
 entityMember :: EntityId -> IntMap a -> Bool
 entityMember (EntityId eid) = I.member eid
 
 entityLookup :: EntityId -> IntMap a -> Maybe a
 entityLookup (EntityId eid) = I.lookup eid
+
+{-
+-- | This searches entity's components from all components
+getEntityComponents :: EntityId -> Cesh [ComponentLocation]
+getEntityComponents e = do
+    allByType <- use compsByType
+
+
+  where isMember = entityMember e
+        -}
+
 
 -- | Get parent(s), ancestors also?
 getEntityParents :: EntityId -> Cesh [EntityId]
@@ -53,7 +104,7 @@ entityHasTag e tagId = do
 
 -- | Tests whether entity contains all components given by '[TagId]',
 -- some but not all can be from parents or ancestors, if so, results to asked components.
-resolveEntity :: EntityId -> [TagId] -> MaybeT Cesh [EntityLocation]
+resolveEntity :: EntityId -> [TagId] -> MaybeT Cesh [ComponentLocation]
 resolveEntity e tags = do
     entityOwns  <- lift entityMatch
     parentsOwns <- lift parentsMatch
@@ -65,11 +116,11 @@ resolveEntity e tags = do
 
     -- now should hold:
     -- guard . and $ elems allMatches 
-    return . map eLocation $ M.keys allMatches
+    return . map cLocation $ M.keys allMatches
     
 
   where
-    eLocation tag = EntityLocation tag e
+    cLocation tag = ComponentLocation tag e
     getParents    = getEntityParents e
 
     entityMatch  :: Cesh (Map TagId Bool)
