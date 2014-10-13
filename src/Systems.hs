@@ -46,7 +46,7 @@ newtype InputSystem o = InputSystem (IO o)
 
 instance HasComponents o => System (InputSystem o) where
     deps _ = []
-    outs _ = extractTagIds (undefined :: o) 
+    outs _ = extractTagIds (error "typeholder" :: o) 
     toAction (InputSystem sys) = do
         res <- liftIO sys
         -- TODO: save res
@@ -57,7 +57,7 @@ instance HasComponents o => System (InputSystem o) where
 newtype OutputSystem d = OutputSystem (d -> IO ())
 
 instance HasComponents d => System (OutputSystem (CList d)) where
-    deps _ = extractTagIds (undefined :: d)
+    deps _ = extractTagIds (error "typeholder" :: d)
     outs _ = []
     toAction (OutputSystem sys) = do
         -- TODO: get inputs
@@ -69,8 +69,8 @@ instance HasComponents d => System (OutputSystem (CList d)) where
 newtype SemipureSystem d o = SemipureSystem (d -> Cesh o)
 
 instance (HasComponents d, HasComponents o) => System (SemipureSystem (CList d) (CList o)) where
-    deps _ = extractTagIds (undefined :: d)
-    outs _ = extractTagIds (undefined :: o) 
+    deps _ = extractTagIds (error "typeholder" :: d)
+    outs _ = extractTagIds (error "typeholder" :: o) 
     toAction (SemipureSystem sys) = do
         -- TODO: get inputs
         res <- sys undefined
@@ -83,8 +83,8 @@ instance (HasComponents d, HasComponents o) => System (SemipureSystem (CList d) 
 newtype PureSystem d o = PureSystem (d -> o)
 
 instance (HasComponents d, HasComponents o) => System (PureSystem (CList d) (CList o)) where
-    deps _ = extractTagIds (undefined :: d)
-    outs _ = extractTagIds (undefined :: o) 
+    deps _ = extractTagIds (error "typeholder" :: d)
+    outs _ = extractTagIds (error "typeholder" :: o) 
     toAction (PureSystem sys) = do
         -- TODO: get inputs
         let res = sys undefined
@@ -95,40 +95,49 @@ instance (HasComponents d, HasComponents o) => System (PureSystem (CList d) (CLi
 
 class HasComponents a where
     extractTagIds :: a -> [TagId]
+    mapWithTagIds :: Monad m => (TagId -> b -> m c) -> a -> m c
     toSomeComponents :: a -> TagIdMap SomeComponent
 
 --instance HasComponents () where
 --    extractTagIds _ = []
 
 
+-- Input system might output only one component, which is duplicated
+-- | Sets the component to be duplicated to all entities which needs it
+newtype DuplicateComp c = DuplicateComp c
+instance Component c => HasComponents (DuplicateComp c) where
+    extractTagIds _ = [cIndex (error "typeholder" :: c)]
+    toSomeComponents (DuplicateComp singletype) = 
+        M.singleton (head $ extractTagIds singletype) (toDyn singletype)
+
 instance Component c => HasComponents [c] where
-    extractTagIds _ = [cIndex (undefined :: c)]
+    extractTagIds _ = [cIndex (error "typeholder" :: c)]
     toSomeComponents singletype = 
         M.singleton (head $ extractTagIds singletype) (toDyn singletype)
 
 
 instance (HasComponents a, HasComponents b) => HasComponents (a,b) where
-    extractTagIds _ = extractTagIds (undefined :: a) ++
-                      extractTagIds (undefined :: b)
+    extractTagIds _ = extractTagIds (error "typeholder" :: a) ++
+                      extractTagIds (error "typeholder" :: b)
 
 instance (HasComponents a, HasComponents b, HasComponents c) => HasComponents (a,b,c) where
-    extractTagIds _ = extractTagIds (undefined :: a) ++
-                      extractTagIds (undefined :: b) ++
-                      extractTagIds (undefined :: c)
+    extractTagIds _ = extractTagIds (error "typeholder" :: a) ++
+                      extractTagIds (error "typeholder" :: b) ++
+                      extractTagIds (error "typeholder" :: c)
 
 instance (HasComponents a, HasComponents b, HasComponents c, HasComponents d) => HasComponents (a,b,c,d) where
-    extractTagIds _ = extractTagIds (undefined :: a) ++
-                      extractTagIds (undefined :: b) ++
-                      extractTagIds (undefined :: c) ++
-                      extractTagIds (undefined :: d)
+    extractTagIds _ = extractTagIds (error "typeholder" :: a) ++
+                      extractTagIds (error "typeholder" :: b) ++
+                      extractTagIds (error "typeholder" :: c) ++
+                      extractTagIds (error "typeholder" :: d)
 
 instance (HasComponents a, HasComponents b, HasComponents c, HasComponents d, HasComponents e) => 
         HasComponents (a,b,c,d,e) where
-    extractTagIds _ = extractTagIds (undefined :: a) ++
-                      extractTagIds (undefined :: b) ++
-                      extractTagIds (undefined :: c) ++
-                      extractTagIds (undefined :: d) ++
-                      extractTagIds (undefined :: e)
+    extractTagIds _ = extractTagIds (error "typeholder" :: a) ++
+                      extractTagIds (error "typeholder" :: b) ++
+                      extractTagIds (error "typeholder" :: c) ++
+                      extractTagIds (error "typeholder" :: d) ++
+                      extractTagIds (error "typeholder" :: e)
 
 
 

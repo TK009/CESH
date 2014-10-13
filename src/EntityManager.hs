@@ -18,6 +18,7 @@ import Types
 -- * Entities
 
 -- ** Addition and Removal
+-- | These will probably be internal and will be called indirectly.
 
 -- | Only empty entities can be created. Components can then added to the created entity
 createEntity :: Cesh EntityId
@@ -38,10 +39,10 @@ removeEntity e = do
 
     when entityExists $
         removeComponents e
-    return entityExists
 
+    return entityExists
   where 
-    -- remove any components associated to given entity
+    -- remove any components associated to given entity O(t*log(n(t)))
     removeComponents :: EntityId -> Cesh ()
     removeComponents (EntityId eid) = 
         compsByType . traverse %= (at eid .~ Nothing)
@@ -49,7 +50,7 @@ removeEntity e = do
    
 removeComponent :: ComponentLocation -> Cesh ()
 removeComponent (ComponentLocation tag (EntityId eid)) =
-    -- update 2D IntMap: update at tag, traverse Just value at eid setting it to Nothing which removes it
+    -- update 2D IntMap: update at tag, traverse Just value at eid, setting it to Nothing which removes it
     compsByType . at tag %= (_Just . at eid .~ Nothing)
     
 
