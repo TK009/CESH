@@ -8,15 +8,15 @@ import Control.Monad.IO.Class (liftIO)
 import Control.Lens
 
 import qualified Data.IntMap.Strict as I
-import qualified Data.Map.Strict as M
-import Data.Dynamic (toDyn, fromDyn)
 
 import Types
+import HasComponents
 
 
 -- probably not needed:
 --newtype StorableSystem = StorableSystem {toAction :: Cesh ()}
 
+-- | Systems are run on every entity that matches the input matcher
 class System s where
     -- | Dependencies for the System, these are 'Component's which the System takes as input
     deps :: s -> [TagId]
@@ -24,13 +24,14 @@ class System s where
     -- | Outputs of the System, these are 'Component's which the System can modify
     outs :: s -> [TagId]
 
-    -- | Internal? Convert the system to an action. Specifies how the System is called
+    -- | Internal; Convert the system to an action. Specifies how the System is called
     --  and results are handled.
     toAction :: s -> Cesh ()
 
 
 -- | Registers a 'System', meaning it is now in use and will be run every frame.
 -- The order in which the 'System's are run is specified by the order they are registered.
+-- NOTE: This should be done before any Entities are added.
 registerSystem :: System s => s -> Cesh ()
 registerSystem sys = do
     let storableSystem = toAction sys
@@ -48,8 +49,10 @@ instance HasComponents o => System (InputSystem o) where
     deps _ = []
     outs _ = extractTagIds (error "typeholder" :: o) 
     toAction (InputSystem sys) = do
+        entities <- _
         res <- liftIO sys
-        -- TODO: save res
+        compsByType %= (M.union $ toSomeComponents res)
+
         return ()
 
 
@@ -92,52 +95,6 @@ instance (HasComponents d, HasComponents o) => System (PureSystem (CList d) (CLi
         return ()
 
 
-
-class HasComponents a where
-    extractTagIds :: a -> [TagId]
-    mapWithTagIds :: Monad m => (TagId -> b -> m c) -> a -> m c
-    toSomeComponents :: a -> TagIdMap SomeComponent
-
---instance HasComponents () where
---    extractTagIds _ = []
-
-
--- Input system might output only one component, which is duplicated
--- | Sets the component to be duplicated to all entities which needs it
-newtype DuplicateComp c = DuplicateComp c
-instance Component c => HasComponents (DuplicateComp c) where
-    extractTagIds _ = [cIndex (error "typeholder" :: c)]
-    toSomeComponents (DuplicateComp singletype) = 
-        M.singleton (head $ extractTagIds singletype) (toDyn singletype)
-
-instance Component c => HasComponents [c] where
-    extractTagIds _ = [cIndex (error "typeholder" :: c)]
-    toSomeComponents singletype = 
-        M.singleton (head $ extractTagIds singletype) (toDyn singletype)
-
-
-instance (HasComponents a, HasComponents b) => HasComponents (a,b) where
-    extractTagIds _ = extractTagIds (error "typeholder" :: a) ++
-                      extractTagIds (error "typeholder" :: b)
-
-instance (HasComponents a, HasComponents b, HasComponents c) => HasComponents (a,b,c) where
-    extractTagIds _ = extractTagIds (error "typeholder" :: a) ++
-                      extractTagIds (error "typeholder" :: b) ++
-                      extractTagIds (error "typeholder" :: c)
-
-instance (HasComponents a, HasComponents b, HasComponents c, HasComponents d) => HasComponents (a,b,c,d) where
-    extractTagIds _ = extractTagIds (error "typeholder" :: a) ++
-                      extractTagIds (error "typeholder" :: b) ++
-                      extractTagIds (error "typeholder" :: c) ++
-                      extractTagIds (error "typeholder" :: d)
-
-instance (HasComponents a, HasComponents b, HasComponents c, HasComponents d, HasComponents e) => 
-        HasComponents (a,b,c,d,e) where
-    extractTagIds _ = extractTagIds (error "typeholder" :: a) ++
-                      extractTagIds (error "typeholder" :: b) ++
-                      extractTagIds (error "typeholder" :: c) ++
-                      extractTagIds (error "typeholder" :: d) ++
-                      extractTagIds (error "typeholder" :: e)
 
 
 

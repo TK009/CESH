@@ -23,6 +23,7 @@ import Types
 -- | Only empty entities can be created. Components can then added to the created entity
 createEntity :: Cesh EntityId
 createEntity = do
+    -- TODO: change to re-usable ids
     nextId <- use entityCounter
     entityCounter += 1
 
@@ -40,9 +41,11 @@ removeEntity e = do
     when entityExists $
         removeComponents e
 
+    -- TODO: add remove for re-usable ids
+
     return entityExists
   where 
-    -- remove any components associated to given entity O(t*log(n(t)))
+    -- remove any components associated to given entity O(t*log(n(t))) (hopefully)
     removeComponents :: EntityId -> Cesh ()
     removeComponents (EntityId eid) = 
         compsByType . traverse %= (at eid .~ Nothing)
