@@ -7,6 +7,7 @@ module HasComponents where
 
 import Data.Dynamic (toDyn, fromDyn)
 import qualified Data.Map.Strict as M
+-- import Control.Lens ((^..), over, each)
 
 import Types
 
@@ -17,7 +18,7 @@ import Types
 class HasComponents a where
     -- | We need to transform the parameter list to our internal representation
     -- to find it from our datastructures
-    extractTagIds :: a -> [TagId]
+    extractTagIds :: a -> [TagId] -- TODO: if not needed, inline to toSomeComponents
 
     -- TODO: wtf was this about
     -- mapWithTagIds :: Monad m => (TagId -> b -> m c) -> a -> m c
@@ -26,9 +27,9 @@ class HasComponents a where
     toSomeComponents   :: a -> TagIdMap SomeComponent
     fromSomeComponents :: TagIdMap SomeComponent -> a
 
--- Shouldn't be possible?
+-- TODO: Shouldn't be possible?
 -- instance HasComponents () where
---     extractTagIds _ = []
+-- extractTagIds _ = []
 
 
 -- TODO: wtf was this about?
@@ -71,42 +72,115 @@ instance Component c => HasComponents [c] where
         in map (flip fromDyn failure) comps
         -}
 
+typeholder :: t
+typeholder = error "typeholder"
 
+getComp :: (Component t) => TagIdMap SomeComponent -> t -> t
+getComp dynamicDataMap th = flip fromDyn failure $
+    M.findWithDefault failure (cIndex th) dynamicDataMap
+  where
+    failure = error "Internal type error"
+
+-- doesn't work because input not same type
+-- extractTagIds    tuple = (over each cIndex) tuple ^..each
+-- (over each toDyn) tuple ^..each -- Tuple to list Lens: toListOf each tuple
 
 instance (Component a, Component b) => HasComponents (a, b) where
-    extractTagIds _ = [ cIndex (error "typeholder" :: a)
-                      , cIndex (error "typeholder" :: b)
+    extractTagIds _ = [ cIndex (typeholder :: a)
+                      , cIndex (typeholder :: b)
                       ]
-    toSomeComponents   = undefined
-    fromSomeComponents = undefined
+
+    toSomeComponents tuple @ (ca, cb) =
+        let types = extractTagIds tuple
+            comps = [ toDyn ca
+                    , toDyn cb
+                    ]
+        in M.fromList $ zip types comps
+
+    fromSomeComponents dynamicDataMap =
+        ( getC (typeholder :: a)
+        , getC (typeholder :: b)
+        )
+      where
+        getC :: (Component t) => t -> t
+        getC = getComp dynamicDataMap
+
 
 instance (Component a, Component b, Component c) => HasComponents (a, b, c) where
-    extractTagIds _ = [ cIndex (error "typeholder" :: a)
-                      , cIndex (error "typeholder" :: b)
-                      , cIndex (error "typeholder" :: c)
+    extractTagIds _ = [ cIndex (typeholder :: a)
+                      , cIndex (typeholder :: b)
+                      , cIndex (typeholder :: c)
                       ]
-    toSomeComponents   = undefined
-    fromSomeComponents = undefined
+    toSomeComponents tuple @ (ca, cb, cc) =
+        let types = extractTagIds tuple
+            comps = [ toDyn ca
+                    , toDyn cb
+                    , toDyn cc
+                    ]
+        in M.fromList $ zip types comps
+
+    fromSomeComponents dynamicDataMap =
+        ( getC (typeholder :: a)
+        , getC (typeholder :: b)
+        , getC (typeholder :: c)
+        )
+      where
+        getC :: (Component t) => t -> t
+        getC = getComp dynamicDataMap
 
 instance (Component a, Component b, Component c, Component d) => HasComponents (a, b, c, d) where
-    extractTagIds _ = [ cIndex (error "typeholder" :: a)
-                      , cIndex (error "typeholder" :: b)
-                      , cIndex (error "typeholder" :: c)
-                      , cIndex (error "typeholder" :: d)
+    extractTagIds _ = [ cIndex (typeholder :: a)
+                      , cIndex (typeholder :: b)
+                      , cIndex (typeholder :: c)
+                      , cIndex (typeholder :: d)
                       ]
-    toSomeComponents   = undefined
-    fromSomeComponents = undefined
+    toSomeComponents tuple @ (ca, cb, cc, cd) =
+        let types = extractTagIds tuple
+            comps = [ toDyn ca
+                    , toDyn cb
+                    , toDyn cc
+                    , toDyn cd
+                    ]
+        in M.fromList $ zip types comps
+
+    fromSomeComponents dynamicDataMap =
+        ( getC (typeholder :: a)
+        , getC (typeholder :: b)
+        , getC (typeholder :: c)
+        , getC (typeholder :: d)
+        )
+      where
+        getC :: (Component t) => t -> t
+        getC = getComp dynamicDataMap
 
 instance (Component a, Component b, Component c, Component d, Component e) =>
         HasComponents (a, b, c, d, e) where
-    extractTagIds _ = [ cIndex (error "typeholder" :: a)
-                      , cIndex (error "typeholder" :: b)
-                      , cIndex (error "typeholder" :: c)
-                      , cIndex (error "typeholder" :: d)
-                      , cIndex (error "typeholder" :: e)
+    extractTagIds _ = [ cIndex (typeholder :: a)
+                      , cIndex (typeholder :: b)
+                      , cIndex (typeholder :: c)
+                      , cIndex (typeholder :: d)
+                      , cIndex (typeholder :: e)
                       ]
-    toSomeComponents   = undefined
-    fromSomeComponents = undefined
+    toSomeComponents tuple @ (ca, cb, cc, cd, ce) =
+        let types = extractTagIds tuple
+            comps = [ toDyn ca
+                    , toDyn cb
+                    , toDyn cc
+                    , toDyn cd
+                    , toDyn ce
+                    ]
+        in M.fromList $ zip types comps
+
+    fromSomeComponents dynamicDataMap =
+        ( getC (typeholder :: a)
+        , getC (typeholder :: b)
+        , getC (typeholder :: c)
+        , getC (typeholder :: d)
+        , getC (typeholder :: e)
+        )
+      where
+        getC :: (Component t) => t -> t
+        getC = getComp dynamicDataMap
 
 
 -- TODO: longer tuples
